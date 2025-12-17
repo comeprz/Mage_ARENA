@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <QCARConfig>
   <Tracking>
+    <ImageTarget name="targetb" size="1000.000000 1000.000000" />
+    <ImageTarget name="targeta" size="1000.000000 1000.000000" />
     <ImageTarget name="amulette" size="1000.000000 1000.000000" />
-    <ImageTarget name="target" size="1000.000000 1000.000000" />
     <ImageTarget name="reverso" size="1000.000000 1000.000000" />
     <ImageTarget name="silence" size="1000.000000 1000.000000" />
     <ImageTarget name="fulmen" size="1000.000000 1000.000000" />
