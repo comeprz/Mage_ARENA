@@ -8,9 +8,12 @@ public class DuelManager : MonoBehaviour
     public Transform playerATarget; // transform du marker torse A
     public Transform playerBTarget; // transform du marker torse B
     public Transform firePage;      // transform du marker page Feu
+    public CooldownUI fireCooldownUI;
 
-    [Header("Prefabs")]
-    public GameObject fireballPrefab;
+    [Header("Fireball (reused instance)")]
+    public FireballProjectile fireballInstance;   // drag & drop l'objet FireballReady
+    public Transform fireballHome;                 // point “repos” (ex: un empty sur la page)
+
 
     [Header("Gameplay")]
     public int playerAHP = 100;
@@ -22,6 +25,10 @@ public class DuelManager : MonoBehaviour
     public bool fireArmed = false;
     public bool playerAIsCaster = true; // pour MVP: toggle qui lance
 
+    [Header("Cooldown")]
+    public float fireCooldown = 5f;
+    bool _fireOnCooldown = false;
+
     void Awake()
     {
         I = this;
@@ -30,34 +37,75 @@ public class DuelManager : MonoBehaviour
     public void ArmFire(bool armed)
     {
         fireArmed = armed;
-        Debug.Log($"Fire armed = {fireArmed}");
+
+        // Si on perd la page, on cache la boule "ready"
+        if (!fireArmed && fireballInstance != null && !fireballInstance.IsInFlight)
+            fireballInstance.gameObject.SetActive(false);
+
+        // Si on retrouve la page, on la réaffiche seulement si pas en cooldown
+        if (fireArmed && fireballInstance != null && !fireballInstance.IsInFlight)
+        {
+            if (!_fireOnCooldown)
+            {
+                fireballInstance.transform.SetParent(fireballHome, false);
+                fireballInstance.transform.localPosition = Vector3.zero;
+                fireballInstance.transform.localRotation = Quaternion.identity;
+                fireballInstance.gameObject.SetActive(true);
+            }
+        }
     }
 
-    // Bouton (fake voix) -> lance
     public void CastFire()
     {
-        if (!fireArmed)
-        {
-            Debug.Log("Fire not armed (page not detected).");
-            return;
-        }
+        if (!fireArmed) return;
+        if (_fireOnCooldown) { Debug.Log("Fire on cooldown"); return; }
 
-        Transform caster = playerAIsCaster ? playerATarget : playerBTarget;
+        if (fireballInstance == null || fireballHome == null) return;
+
         Transform target = playerAIsCaster ? playerBTarget : playerATarget;
+        if (target == null) return;
 
-        if (caster == null || target == null)
-        {
-            Debug.LogWarning("Caster/Target missing (targets not detected or not assigned).");
-            return;
-        }
+        // Si déjà en vol, on ignore
+        if (fireballInstance.IsInFlight) return;
 
-        // Spawn depuis la page Feu si tu veux (stylé), ou depuis le caster.
-        Vector3 spawnPos = firePage != null ? firePage.position : caster.position;
-        Quaternion spawnRot = Quaternion.LookRotation((target.position - spawnPos).normalized);
+        // Cache la boule "ready" en la détachant + en la laissant partir
+        _fireOnCooldown = true;
 
-        GameObject go = Instantiate(fireballPrefab, spawnPos, spawnRot);
-        var proj = go.AddComponent<FireballProjectile>();
-        proj.Init(target, fireballSpeed, fireballDamage, playerAIsCaster);
+        fireballInstance.transform.position = fireballHome.position;
+        fireballInstance.transform.rotation = Quaternion.LookRotation((target.position - fireballHome.position).normalized);
+        fireballInstance.transform.SetParent(null, true);
+        fireballInstance.gameObject.SetActive(true);
+
+        fireballInstance.Launch(
+            target,
+            fireballSpeed,
+            fireballDamage,
+            playerAIsCaster,
+            onArrive: () =>
+            {
+                // À l'impact : on cache la boule, puis on la remet après cooldown
+                fireballInstance.gameObject.SetActive(false);
+
+                if (fireCooldownUI != null)
+                    fireCooldownUI.StartCooldown(fireCooldown);
+
+                Invoke(nameof(ResetFireAfterCooldown), fireCooldown);
+            }
+        );
+    }
+
+    void ResetFireAfterCooldown()
+    {
+        _fireOnCooldown = false;
+
+        // Si la page n'est plus trackée, on garde la boule cachée
+        if (!fireArmed) return;
+
+        // Replacer la boule au "home" (sur la page)
+        fireballInstance.transform.SetParent(fireballHome, false);
+        fireballInstance.transform.localPosition = Vector3.zero;
+        fireballInstance.transform.localRotation = Quaternion.identity;
+        fireballInstance.gameObject.SetActive(true);
     }
 
     public void ApplyDamageTo(bool damagePlayerA, int dmg)

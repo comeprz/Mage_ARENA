@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 public class FireballProjectile : MonoBehaviour
@@ -6,33 +7,48 @@ public class FireballProjectile : MonoBehaviour
     float _speed;
     int _damage;
     bool _casterIsA;
+    Action _onArrive;
 
-    public float hitDistance = 0.12f; // à ajuster selon la taille du marker
-    public float lifeTime = 5f;
+    public bool IsInFlight { get; private set; } = false;
 
-    public void Init(Transform target, float speed, int damage, bool casterIsA)
+    public float hitDistance = 0.25f;
+
+    public void Launch(Transform target, float speed, int damage, bool casterIsA, Action onArrive)
     {
         _target = target;
         _speed = speed;
         _damage = damage;
         _casterIsA = casterIsA;
+        _onArrive = onArrive;
 
-        Destroy(gameObject, lifeTime);
+        IsInFlight = true;
+        gameObject.SetActive(true);
     }
 
     void Update()
     {
-        if (_target == null) { Destroy(gameObject); return; }
+        if (!IsInFlight) return;
+        if (_target == null)
+        {
+            IsInFlight = false;
+            _onArrive?.Invoke();
+            return;
+        }
 
         Vector3 to = _target.position - transform.position;
         float step = _speed * Time.deltaTime;
 
         if (to.magnitude <= hitDistance)
         {
-            // Si caster est A, on damage B, sinon on damage A
             bool damagePlayerA = !_casterIsA;
             DuelManager.I.ApplyDamageTo(damagePlayerA, _damage);
-            Destroy(gameObject);
+
+            IsInFlight = false;
+
+            // Option : petit “disparition” visuelle
+            // gameObject.SetActive(false);
+
+            _onArrive?.Invoke();
             return;
         }
 
