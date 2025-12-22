@@ -29,9 +29,21 @@ public class DuelManager : MonoBehaviour
     public float fireCooldown = 5f;
     bool _fireOnCooldown = false;
 
+    [Header("UI")]
+    public HealthBarUI playerAHealthUI;
+    public HealthBarUI playerBHealthUI;
+
+    int _playerAMaxHP = 100;
+    int _playerBMaxHP = 100;
+
     void Awake()
     {
         I = this;
+        _playerAMaxHP = playerAHP;
+        _playerBMaxHP = playerBHP;
+
+        playerAHealthUI?.SetInstant(1f);
+        playerBHealthUI?.SetInstant(1f);
     }
 
     public void ArmFire(bool armed)
@@ -121,5 +133,11 @@ public class DuelManager : MonoBehaviour
         // TODO: feedback visuel/sonore ici (flash réticule, son impact)
         if (playerAHP == 0 || playerBHP == 0)
             Debug.Log("Game Over");
+
+        float a01 = (float)playerAHP / _playerAMaxHP;
+        float b01 = (float)playerBHP / _playerBMaxHP;
+
+        playerAHealthUI?.SetTarget(a01);
+        playerBHealthUI?.SetTarget(b01);
     }
 }
